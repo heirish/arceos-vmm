@@ -1,6 +1,10 @@
 FROM rust:slim
 
-RUN echo /etc/apt/sources.list << deb http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm main
+#RUN echo /etc/apt/sources.list << deb http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm main
+RUN sed -i \
+  -e 's|http://deb.debian.org/debian|https://mirrors.tuna.tsinghua.edu.cn/debian|g' \
+  -e 's|http://deb.debian.org/debian-security|https://mirrors.tuna.tsinghua.edu.cn/debian-security|g' \
+  /etc/apt/sources.list.d/debian.sources
 RUN wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
 
 RUN apt-get update \
@@ -9,10 +13,11 @@ RUN apt-get update \
         pkg-config libglib2.0-dev git libslirp-dev \
     && rm -rf /var/lib/apt/lists/*
 
+ENV RUSTUP_DIST_SERVER=https://mirrors.ustc.edu.cn/rust-static
+ENV RUSTUP_UPDATE_ROOT=https://mirrors.ustc.edu.cn/rust-static/rustup
 RUN cargo install cargo-binutils axconfig-gen
 
 COPY rust-toolchain.toml /rust-toolchain.toml
-
 RUN rustc --version
 
 RUN wget https://musl.cc/aarch64-linux-musl-cross.tgz \
@@ -26,11 +31,12 @@ RUN wget https://musl.cc/aarch64-linux-musl-cross.tgz \
     && rm -f *.tgz
 
 RUN wget https://download.qemu.org/qemu-9.2.1.tar.xz \
-    && tar xf qemu-9.2.1.tar.xz \
-    && cd qemu-9.2.1 \
+    && tar xf qemu-9.2.1.tar.xz 
+RUN cd qemu-9.2.1 \
     && ./configure --prefix=/qemu-bin-9.2.1 \
         --target-list=loongarch64-softmmu,riscv64-softmmu,aarch64-softmmu,x86_64-softmmu \
         --enable-gcov --enable-debug --enable-slirp \
+    || cat build/meson-logs/meson-log.txt \
     && make -j$(nproc) \
     && make install
 RUN rm -rf qemu-9.2.1 qemu-9.2.1.tar.xz
